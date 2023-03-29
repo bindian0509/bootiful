@@ -5,13 +5,14 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ProblemDetail;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Controller;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.util.Assert;
+import org.springframework.web.bind.annotation.*;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -46,7 +47,24 @@ public class BootifulApplication {
 		Customer getCustomerById(@PathVariable Integer id) {
 			return this.customerService.getCustomerById(id);
 		}
+
+		@GetMapping("/customers/{name}")
+		Customer getCustomerByName(@PathVariable String name) {
+			Assert.state(Character.isUpperCase(name.charAt(0)), "First character of name starts with CAPITAL letter.");
+			return this.customerService.getCustomerByName(name);
+		}
 	}
+
+	@ControllerAdvice
+	class ErrorHandlingControlAdvice {
+		@ExceptionHandler (IllegalStateException.class)
+		ProblemDetail handleIllegalStateException (IllegalStateException exception) {
+			var problemDetail =  ProblemDetail.forStatus(HttpStatusCode.valueOf(404));
+			problemDetail.setDetail("The name must start with a CAPITAL letter! ");
+			return problemDetail;
+		}
+	}
+
 	@Service
 	class CustomerService {
 		private final JdbcTemplate jdbcTemplate;
@@ -67,6 +85,9 @@ public class BootifulApplication {
 
 		Customer getCustomerById (Integer id) {
 			return this.jdbcTemplate.queryForObject("select * from customer where id=?", this.customerRowMapper, id);
+		}
+		Customer getCustomerByName (String name) {
+			return this.jdbcTemplate.queryForObject("select * from customer where name=?", this.customerRowMapper, name);
 		}
 	}
 
